@@ -9,20 +9,22 @@ SPREADSHEET_ID = "1aEZgrhStJ09lFkdOJjUEuDXJb-cmxQvsfheKpXPgwP0"
 
 def get_worksheet(sheet_name):
     """
-    파일 대신 Streamlit Secrets에서 인증 정보를 안전하게 읽어옵니다.
-    JWT Signature 오류를 방지하기 위해 dict 방식을 사용합니다.
+    Streamlit Secrets에서 인증 정보를 안전하게 읽어옵니다.
+    Incorrect padding 오류를 방지하기 위해 dict 방식을 사용합니다.
     """
     scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
     
-    # Streamlit Cloud의 Settings -> Secrets에 저장된 정보를 가져옴
     try:
+        # Streamlit Cloud의 Settings -> Secrets에 저장된 [gcp_service_account]를 가져옴
         creds_info = st.secrets["gcp_service_account"]
+        
+        # 딕셔너리 데이터를 사용하여 인증 객체 생성
         creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_info, scope)
         client = gspread.authorize(creds)
         return client.open_by_key(SPREADSHEET_ID).worksheet(sheet_name)
     except Exception as e:
         st.error(f"❌ 인증 설정 오류: {e}")
-        st.info("Streamlit Secrets 설정을 확인해주세요.")
+        st.info("💡 Streamlit Secrets 설정을 다시 확인해주세요.")
         return None
 
 def upload_logic(uploaded_file, sheet_name):
@@ -30,7 +32,7 @@ def upload_logic(uploaded_file, sheet_name):
     if uploaded_file:
         try:
             # 엑셀 읽기
-            df = pd.read_excel(uploaded_file, index_col=None)
+            df = pd.read_excel(uploaded_file, engine='openpyxl')
             
             # 열 밀림 방지: 첫 번째 열이 제목 없는 빈 열(Unnamed)인 경우 삭제
             if df.columns[0].startswith('Unnamed'):
@@ -46,6 +48,7 @@ def upload_logic(uploaded_file, sheet_name):
             # 시트 연결 및 데이터 추가
             sheet = get_worksheet(sheet_name)
             if sheet:
+                # 데이터 행 추가
                 sheet.append_rows(data, value_input_option='USER_ENTERED')
                 st.success(f"✅ {sheet_name} 시트에 {len(data)}건 업로드 완료!")
             
@@ -83,4 +86,4 @@ with tab3:
         upload_logic(file3, "경리나라")
 
 st.markdown("---")
-st.caption(f"Connected Spreadsheet ID: {SPREADSHEET_ID}")
+st.caption(f"연동된 스프레드시트 ID: {SPREADSHEET_ID}")
